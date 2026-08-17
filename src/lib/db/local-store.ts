@@ -22,12 +22,36 @@ function enqueue<T>(fn: () => Promise<T>): Promise<T> {
   return result;
 }
 
+// Serverless platforms (Vercel, most others) run functions on a read-only
+// filesystem, so this store cannot persist anything there. Fail fast with a
+// clear, actionable message instead of a confusing raw ENOENT/EROFS error
+// the first time someone tries to write (e.g. logging in).
+function assertWritableEnvironment(): void {
+  const looksServerless = Boolean(
+    process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NETLIFY
+  );
+  if (looksServerless) {
+    throw new Error(
+      "O banco de dados local (arquivo JSON) não funciona em ambientes serverless como a " +
+        "Vercel, porque o sistema de arquivos é somente leitura em produção. Configure o " +
+        "Supabase definindo NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY nas " +
+        "variáveis de ambiente do projeto na Vercel (veja o README, seção 'Conectando " +
+        "dados e integrações reais' e rode as migrations em supabase/migrations)."
+    );
+  }
+}
+
 async function ensureDb(): Promise<void> {
-  await fs.mkdir(DATA_DIR, { recursive: true });
   try {
-    await fs.access(DB_FILE);
-  } catch {
-    await fs.writeFile(DB_FILE, JSON.stringify({}, null, 2), "utf-8");
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    try {
+      await fs.access(DB_FILE);
+    } catch {
+      await fs.writeFile(DB_FILE, JSON.stringify({}, null, 2), "utf-8");
+    }
+  } catch (err) {
+    assertWritableEnvironment();
+    throw err;
   }
 }
 
@@ -42,7 +66,12 @@ async function readDb(): Promise<Database> {
 }
 
 async function writeDb(db: Database): Promise<void> {
-  await fs.writeFile(DB_FILE, JSON.stringify(db, null, 2), "utf-8");
+  try {
+    await fs.writeFile(DB_FILE, JSON.stringify(db, null, 2), "utf-8");
+  } catch (err) {
+    assertWritableEnvironment();
+    throw err;
+  }
 }
 
 function matches<T extends Identifiable>(record: T, where?: Partial<Record<keyof T, unknown>>) {
