@@ -46,19 +46,33 @@ obrigatório para a V1 funcionar.
 4. Reinicie o servidor — o sistema passa a usar o Supabase automaticamente
    (veja `src/lib/db/index.ts`). Nenhuma outra mudança de código é necessária.
 
-### Fonte real de empresas (Google Places ou outra)
+### Fonte real de empresas (Google Places)
 
 O sistema nunca inventa empresas, telefones, WhatsApp ou sites. Toda busca passa pela
-abstração `DataProvider` (`src/lib/data-providers/`). Para usar dados reais:
+abstração `DataProvider` (`src/lib/data-providers/`), e o `GooglePlacesProvider`
+(`src/lib/data-providers/google-places-provider.ts`) já está implementado usando a
+Places API (New) — busca por segmento + cidade/estado, com paginação e sem inventar
+campos que o Google não retorna (Instagram, Facebook e WhatsApp continuam sempre
+`null`, já que a Places API não fornece isso).
 
-1. Obtenha uma chave da Google Places API.
-2. Defina `GOOGLE_PLACES_API_KEY` no `.env.local`.
-3. Implemente as chamadas reais em
-   `src/lib/data-providers/google-places-provider.ts` (o arquivo já tem a estrutura, os
-   comentários e os pontos de extensão prontos).
+Para ativar:
 
-Enquanto isso não for feito, o sistema usa o `MockDataProvider` automaticamente e deixa
-isso visível na interface (aviso no topo das telas).
+1. Crie um projeto no [Google Cloud Console](https://console.cloud.google.com/) (ou use
+   um existente) e ative a **Places API (New)**.
+2. Habilite o faturamento (billing) do projeto — o Google exige isso mesmo para uso
+   dentro da cota gratuita mensal.
+3. Gere uma chave de API em **APIs e serviços → Credenciais** e, por segurança, restrinja
+   essa chave à Places API (New).
+4. Defina `GOOGLE_PLACES_API_KEY` no `.env.local` (local) ou nas variáveis de ambiente do
+   projeto na Vercel (produção) e faça o redeploy.
+
+Enquanto essa chave não estiver definida, o sistema usa o `MockDataProvider`
+automaticamente e deixa isso visível na interface (aviso no topo das telas). Quando um
+lead tem site real (fonte Google Places), a análise de presença digital também deixa de
+ser simulada: `src/lib/analysis/site-analyzer.ts` faz uma checagem HTTP real do site
+(acessibilidade, HTTPS, meta viewport, botão de WhatsApp, formulário de contato, SEO
+básico etc.) em vez de gerar dados fictícios — isso só continua simulado para os leads
+de demonstração (`is_demo_data: true`).
 
 ### Neotec OS (CRM)
 
@@ -143,6 +157,5 @@ Classificação: 🔥 Quente (≥80) · 🟡 Morno (≥60) · ⚪ Frio (<60) —
 
 Conforme a prioridade do projeto ("qualidade dos leads, não quantidade de funcionalidades"),
 não foram implementados nesta primeira versão: edição de segmentos/cidades pela interface
-(hoje em `default-settings.ts`), CRUD completo de usuários, WhatsApp Business API oficial,
-e a integração real com Google Places (a estrutura está pronta, faltando apenas a chamada
-à API quando a chave estiver disponível).
+(hoje em `default-settings.ts`), CRUD completo de usuários e WhatsApp Business API oficial
+(o botão "Abrir WhatsApp" usa o link público `wa.me`, que já funciona sem credenciais).
