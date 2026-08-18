@@ -105,17 +105,22 @@ async function searchSegment(
   const results: PlacesApiPlace[] = [];
   let pageToken: string | undefined;
 
+  // Places API (New) requires paging requests to resend the exact same
+  // parameters as the initial SearchText request — only `pageToken` is
+  // added on top. Sending a reduced body on later pages is rejected with
+  // "Request parameters for paging requests must match the initial
+  // SearchText request."
+  const baseBody = {
+    textQuery,
+    languageCode: "pt-BR",
+    regionCode: "BR",
+    maxResultCount: 20,
+  };
+
   for (let page = 0; page < MAX_PAGES_PER_SEGMENT && results.length < remaining; page++) {
     if (pageToken) await sleep(PAGE_TOKEN_DELAY_MS);
 
-    const body: Record<string, unknown> = pageToken
-      ? { textQuery, pageToken, languageCode: "pt-BR" }
-      : {
-          textQuery,
-          languageCode: "pt-BR",
-          regionCode: "BR",
-          maxResultCount: 20,
-        };
+    const body: Record<string, unknown> = pageToken ? { ...baseBody, pageToken } : baseBody;
 
     const page_ = await searchTextPage(apiKey, body);
     results.push(...(page_.places ?? []));
