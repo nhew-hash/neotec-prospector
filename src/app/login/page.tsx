@@ -80,10 +80,6 @@ export default function LoginPage() {
             </form>
           </CardContent>
         </Card>
-
-        <p className="text-center text-white/40 text-xs mt-6">
-          Demo: admin@neotec.com.br / neotec123 · ana@neotec.com.br / vendas123
-        </p>
       </div>
     </div>
   );
